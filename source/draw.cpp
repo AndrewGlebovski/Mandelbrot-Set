@@ -98,11 +98,15 @@ int draw_mandelbrot(void) {
 void set_pixels(uint8_t *buffer) {
     assert(buffer && "Can't set pixels with null buffer!\n");
 
-    for (uint32_t y = 0; y < SCREEN_H; y++) {
-        for (uint32_t x = 0; x < SCREEN_W; x++) {
-            float x0 = CENTER_X + ((float)x / (float)SCREEN_W - 0.5f) * SET_W;
-            float y0 = CENTER_Y + ((float)y / (float)SCREEN_H - 0.5f) * SET_H;
+    const float delta_x = SET_W / (float)SCREEN_W;
+    const float delta_y = SET_H / (float)SCREEN_H;
 
+    float y0 = CENTER_Y - 0.5f * SET_H;
+
+    for (uint32_t y = 0; y < SCREEN_H; y++) {
+        float x0 = CENTER_X - 0.5f * SET_W;
+
+        for (uint32_t x = 0; x < SCREEN_W; x++) {
             float x_i = x0;
             float y_i = y0;
 
@@ -119,7 +123,11 @@ void set_pixels(uint8_t *buffer) {
 
             set_pixel_color(buffer, N, x0, y0);
             buffer += 4;
+
+            x0 += delta_x;
         }
+
+        y0 += delta_y;
     }
 }
 
