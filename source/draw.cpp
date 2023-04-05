@@ -5,9 +5,17 @@
 
 #include <SFML/Graphics.hpp>
 #include <assert.h>
+#include <immintrin.h>
 #include "configs.hpp"
 #include "draw.hpp"
 
+
+typedef union {
+    __m256 float_vec;
+    __m256i int_vec;
+    float float_arr[8];
+    int int_arr[8];
+} VecToArr;
 
 
 
@@ -25,7 +33,7 @@ void set_pixels(uint8_t *buffer);
  * \param [in]  x       Pixel x coordinate
  * \param [in]  y       Pixel y coordinate
 */
-void set_pixel_color(uint8_t *buffer, uint8_t N, float x, float y);
+void set_pixel_color(uint8_t *buffer, int N, float x, float y);
 
 
 
@@ -40,7 +48,7 @@ int draw_mandelbrot(void) {
         return 1;
     }
 
-    sf::Text status(sf::String("FSP: 0"), font, FONT_SIZE);
+    sf::Text status(sf::String("FPS: 0"), font, FONT_SIZE);
     status.setFillColor(sf::Color().Black);
 
 
@@ -56,6 +64,7 @@ int draw_mandelbrot(void) {
         printf("Can't allocate buffer for pixels colors!\n");
         return 1;
     }
+
 
     sf::Image image;
     sf::Texture texture;
@@ -104,27 +113,45 @@ void set_pixels(uint8_t *buffer) {
     float y0 = CENTER_Y - 0.5f * SET_H;
 
     for (uint32_t y = 0; y < SCREEN_H; y++) {
-        float x0 = CENTER_X - 0.5f * SET_W;
 
-        for (uint32_t x = 0; x < SCREEN_W; x++) {
-            float x_i = x0;
-            float y_i = y0;
+        __m256 x0 = _mm256_add_ps(
+            _mm256_set1_ps(CENTER_X - 0.5f * SET_W),
+            _mm256_set_ps(0.0f, delta_x, 2.0f * delta_x, 3.0f * delta_x, 4.0f * delta_x, 5.0f * delta_x, 6.0f * delta_x, 7.0f * delta_x)
+        );
 
-            uint8_t N = 0;
-            for (; N < NMAX; N++) {
-                float x2 = x_i * x_i;
-                float y2 = y_i * y_i;
-                float xy = x_i * y_i;
+        for (uint32_t x = 0; x < SCREEN_W; x += 8) {
+            __m256 x_i = x0;
+            __m256 y_i = _mm256_set1_ps(y0);
 
-                if ((x2 + y2) > RMAX * RMAX) break;
+            __m256i N = _mm256_setzero_si256();
+            for (;;) {
+                __m256 x2 = _mm256_mul_ps(x_i, x_i);
+                __m256 y2 = _mm256_mul_ps(y_i, y_i);
+                __m256 xy = _mm256_mul_ps(x_i, y_i);
 
-                x_i = x2 - y2 + x0, y_i = 2 * xy + y0;
+
+                __m256 res1 = _mm256_cmp_ps(_mm256_add_ps(x2, y2), _mm256_set1_ps(RMAX * RMAX), _CMP_LT_OS);
+                if (_mm256_testz_si256(_mm256_castps_si256(res1), _mm256_set1_epi32(0xFFFFFFFF))) break;
+
+                N = _mm256_add_epi32(N, _mm256_and_si256(_mm256_castps_si256(res1), _mm256_set1_epi32(1)));
+
+                __m256i res2 = _mm256_cmpeq_epi32(N, _mm256_set1_epi32(NMAX));
+                if (!_mm256_testz_si256(res2, _mm256_set1_epi32(0xFFFFFFFF))) break;
+
+
+                x_i = _mm256_add_ps(_mm256_sub_ps(x2, y2), x0);
+                y_i = _mm256_add_ps(_mm256_mul_ps(xy, _mm256_set1_ps(2.0f)), _mm256_set1_ps(y0));
             }
 
-            set_pixel_color(buffer, N, x0, y0);
-            buffer += 4;
+            VecToArr tmpN = {}, tmpX = {};
+            tmpN.int_vec = N, tmpX.float_vec = x0;
 
-            x0 += delta_x;
+            for (int i = 7; i >= 0; i--) {
+                set_pixel_color(buffer, (tmpN.int_arr)[i], (tmpX.float_arr)[8 - i - 1], y0);
+                buffer += 4;
+            }
+
+            x0 = _mm256_add_ps(x0, _mm256_set1_ps(8.0f * delta_x));
         }
 
         y0 += delta_y;
@@ -132,11 +159,11 @@ void set_pixels(uint8_t *buffer) {
 }
 
 
-void set_pixel_color(uint8_t *buffer, uint8_t N, float x, float y) {
+void set_pixel_color(uint8_t *buffer, int N, float x, float y) {
     assert(buffer && "Can't set pixel color with null buffer!\n");
 
-    buffer[0] = NMAX - N;
-    buffer[1] = NMAX - N;
-    buffer[2] = NMAX - N;
+    buffer[0] = (uint8_t) (NMAX - N);
+    buffer[1] = (uint8_t) (NMAX - N);
+    buffer[2] = (uint8_t) (NMAX - N);
     buffer[3] = 255;
 }

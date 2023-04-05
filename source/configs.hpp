@@ -13,7 +13,7 @@ const unsigned int COLOR = 0x00E200FF;          ///< Progress bar and text color
 const unsigned int FONT_SIZE = 24;              ///< Font size
 
 const float RMAX = 4 * (float)SCREEN_W;         ///< Max distance from center
-const uint32_t NMAX = 255;                      ///< Max iteration number
+const int NMAX = 255;                           ///< Max iteration number
 
 const float CENTER_X = -0.75;                   ///< X0 additional offset
 const float CENTER_Y = 0;                       ///< Y0 additional offset
