@@ -3,9 +3,9 @@
 
 
 int main() {
-    draw_mandelbrot();
+    int result = draw_mandelbrot();
 
     printf("Mandelbrot set!\n");
 
-    return 0;
+    return result;
 }
