@@ -10,6 +10,7 @@
 #include "draw.hpp"
 
 
+/// Possible functions exit codes
 typedef enum {
     OK                  = 0,        ///< OK
     INVALID_ARG         = 1,        ///< Invalid argument passed to the function
@@ -17,6 +18,15 @@ typedef enum {
     FILE_NOT_FOUND      = 3,        ///< File not found
     INVALID_FORMAT      = 4,        ///< Color table file has invalid format
 } EXIT_CODES;
+
+
+/// Contains information about Mandelbrot set offset and scale
+typedef struct {
+    float center_x = CENTER_X;      ///< Offset x
+    float center_y = CENTER_Y;      ///< Offset y
+    float set_w = SET_W;            ///< Scale x
+    float set_h = SET_H;            ///< Scale y
+} Transform;
 
 
 typedef union {
@@ -27,6 +37,7 @@ typedef union {
 } VecToArr;
 
 
+/// Contains information about color in RGB format
 typedef struct {
     uint8_t red = 0;
     uint8_t green = 0;
@@ -47,8 +58,9 @@ do {                                            \
  * \brief Set pixels colors in buffer accroding to Mandelbrot formula
  * \param [in]  color_table Containts rgb color for each iteration number
  * \param [out] buffer      Buffer to store pixels colors
+ * \param [in]  transform   Mandelbrot set offset and scale
 */
-void set_pixels(IterColor *color_table, uint8_t *buffer);
+void set_pixels(const IterColor *color_table, uint8_t *buffer, const Transform *transform);
 
 
 /**
@@ -58,7 +70,7 @@ void set_pixels(IterColor *color_table, uint8_t *buffer);
  * \param [in]  x       Pixel x coordinate
  * \param [in]  y       Pixel y coordinate
 */
-void set_pixel_color(IterColor *color_table, uint8_t *buffer, int N, float x, float y);
+void set_pixel_color(const IterColor *color_table, uint8_t *buffer, int N, float x, float y);
 
 
 /**
@@ -109,16 +121,53 @@ int draw_mandelbrot(void) {
     sf::Texture texture;
 
 
+    Transform transform = {};
+
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
             }
+            else if (event.type == sf::Event::KeyPressed) {
+                switch (event.key.code) {
+                    case sf::Keyboard::Up:
+                        transform.center_y -= MOVE_FACTOR * transform.set_h;
+                        break;
+
+                    case sf::Keyboard::Down:
+                        transform.center_y += MOVE_FACTOR * transform.set_h;
+                        break;
+
+                    case sf::Keyboard::Left:
+                        transform.center_x -= MOVE_FACTOR * transform.set_w;
+                        break;
+
+                    case sf::Keyboard::Right:
+                        transform.center_x += MOVE_FACTOR * transform.set_w;
+                        break;
+                    
+                    default:
+                        break;
+                }
+            }
+            else if (event.type == sf::Event::MouseWheelScrolled) {
+                if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
+                    if (event.mouseWheelScroll.delta > 0) {
+                        transform.set_w *= ZOOM_FACTOR;
+                        transform.set_h *= ZOOM_FACTOR;
+                    }
+                    else {
+                        transform.set_w /= ZOOM_FACTOR;
+                        transform.set_h /= ZOOM_FACTOR;
+                    }
+                }
+            }
         }
 
 
-        for (size_t i = 0; i < 100; i++) set_pixels(color_table, pixels);
+        set_pixels(color_table, pixels, &transform);
 
         image.create(SCREEN_W, SCREEN_H, pixels);
         texture.loadFromImage(image);
@@ -126,7 +175,7 @@ int draw_mandelbrot(void) {
 
 
         curr_time = clock.getElapsedTime();
-        int fps = (int)(100.0f / (curr_time.asSeconds() - prev_time.asSeconds()));
+        int fps = (int)(1.0f / (curr_time.asSeconds() - prev_time.asSeconds()));
         sprintf(fps_text, "FPS: %i", fps);
         status.setString(fps_text);
         prev_time = curr_time;
@@ -142,19 +191,19 @@ int draw_mandelbrot(void) {
 }
 
 
-void set_pixels(IterColor *color_table, uint8_t *buffer) {
+void set_pixels(const IterColor *color_table, uint8_t *buffer, const Transform *transform) {
     assert(color_table && "Color table is null!\n");
     assert(buffer && "Can't set pixels with null buffer!\n");
 
-    const float delta_x = SET_W / (float)SCREEN_W;
-    const float delta_y = SET_H / (float)SCREEN_H;
+    const float delta_x = transform -> set_w / (float)SCREEN_W;
+    const float delta_y = transform -> set_h / (float)SCREEN_H;
 
-    float y0 = CENTER_Y - 0.5f * SET_H;
+    float y0 = transform -> center_y - 0.5f * transform -> set_h;
 
     for (uint32_t y = 0; y < SCREEN_H; y++) {
 
         __m256 x0 = _mm256_add_ps(
-            _mm256_set1_ps(CENTER_X - 0.5f * SET_W),
+            _mm256_set1_ps(transform -> center_x - 0.5f * transform -> set_w),
             _mm256_set_ps(0.0f, delta_x, 2.0f * delta_x, 3.0f * delta_x, 4.0f * delta_x, 5.0f * delta_x, 6.0f * delta_x, 7.0f * delta_x)
         );
 
@@ -198,13 +247,21 @@ void set_pixels(IterColor *color_table, uint8_t *buffer) {
 }
 
 
-void set_pixel_color(IterColor *color_table, uint8_t *buffer, int N, float x, float y) {
+void set_pixel_color(const IterColor *color_table, uint8_t *buffer, int N, float x, float y) {
     assert(buffer && "Can't set pixel color with null buffer!\n");
 
-    buffer[0] = color_table[N].red;
-    buffer[1] = color_table[N].green;
-    buffer[2] = color_table[N].blue;
-    buffer[3] = 255;
+    if (0 < N && N < NMAX) {
+        buffer[0] = color_table[N % POSSIBLE_COLORS].red;
+        buffer[1] = color_table[N % POSSIBLE_COLORS].green;
+        buffer[2] = color_table[N % POSSIBLE_COLORS].blue;
+        buffer[3] = 255;
+    }
+    else {
+        buffer[0] = 0;
+        buffer[1] = 0;
+        buffer[2] = 0;
+        buffer[3] = 255;
+    }
 }
 
 
@@ -215,10 +272,10 @@ int load_color_table(const char *filename, IterColor **buffer) {
     FILE *file = fopen(filename, "r");
     ASSERT(file, FILE_NOT_FOUND, "Color table source file not found!\n");
 
-    *buffer = (IterColor *) calloc(NMAX + 1, sizeof(IterColor));
+    *buffer = (IterColor *) calloc(POSSIBLE_COLORS, sizeof(IterColor));
     ASSERT(*buffer, ALLOC_FAIL, "Can't allocate color table buffer!\n");
 
-    for (int i = 0; i < NMAX + 1; i++) {
+    for (int i = 0; i < POSSIBLE_COLORS; i++) {
         if (fscanf(file, "%hhu %hhu %hhu", &((*buffer + i) -> red), &((*buffer + i) -> green), &((*buffer + i) -> blue)) != 3) {
             free(*buffer);
             *buffer = nullptr;
