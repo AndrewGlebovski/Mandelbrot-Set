@@ -10,6 +10,15 @@
 #include "draw.hpp"
 
 
+typedef enum {
+    OK                  = 0,        ///< OK
+    INVALID_ARG         = 1,        ///< Invalid argument passed to the function
+    ALLOC_FAIL          = 2,        ///< Allocation failed
+    FILE_NOT_FOUND      = 3,        ///< File not found
+    INVALID_FORMAT      = 4,        ///< Color table file has invalid format
+} EXIT_CODES;
+
+
 typedef union {
     __m256 float_vec;
     __m256i int_vec;
@@ -76,7 +85,7 @@ int draw_mandelbrot(void) {
 
 
     sf::Font font;
-    ASSERT(font.loadFromFile(FONT_FILE), 1, "Can't open %s!\n", FONT_FILE);
+    ASSERT(font.loadFromFile(FONT_FILE), FILE_NOT_FOUND, "Can't open %s!\n", FONT_FILE);
 
     sf::Text status(sf::String("FPS: 0"), font, FONT_SIZE);
 
@@ -88,11 +97,12 @@ int draw_mandelbrot(void) {
 
 
     uint8_t *pixels = (uint8_t *) calloc(SCREEN_W * SCREEN_H * 4, sizeof(uint8_t));
-    ASSERT(pixels, 1, "Can't allocate buffer for pixels colors!\n");
+    ASSERT(pixels, ALLOC_FAIL, "Can't allocate buffer for pixels colors!\n");
 
 
     IterColor *color_table = nullptr;
-    if (load_color_table("assets/ColorTable.txt", &color_table)) return 1;
+    int exitcode = load_color_table("assets/ColorTable.txt", &color_table);
+    if (exitcode) return exitcode;
 
 
     sf::Image image;
@@ -128,9 +138,7 @@ int draw_mandelbrot(void) {
     }
 
     free(pixels);
-    if (free_color_table(&color_table)) return 1;
-
-    return 0;
+    return free_color_table(&color_table);
 }
 
 
@@ -201,14 +209,14 @@ void set_pixel_color(IterColor *color_table, uint8_t *buffer, int N, float x, fl
 
 
 int load_color_table(const char *filename, IterColor **buffer) {
-    ASSERT(filename, 1, "Can't load without filename!\n");
-    ASSERT(buffer, 1, "Can't load in null buffer!\n");
+    ASSERT(filename, INVALID_ARG, "Can't load without filename!\n");
+    ASSERT(buffer, INVALID_ARG, "Can't load in null buffer!\n");
 
     FILE *file = fopen(filename, "r");
-    ASSERT(file, 1, "Color table source file not found!\n");
+    ASSERT(file, FILE_NOT_FOUND, "Color table source file not found!\n");
 
     *buffer = (IterColor *) calloc(NMAX + 1, sizeof(IterColor));
-    ASSERT(*buffer, 1, "Can't allocate color table buffer!\n");
+    ASSERT(*buffer, ALLOC_FAIL, "Can't allocate color table buffer!\n");
 
     for (int i = 0; i < NMAX + 1; i++) {
         if (fscanf(file, "%hhu %hhu %hhu", &((*buffer + i) -> red), &((*buffer + i) -> green), &((*buffer + i) -> blue)) != 3) {
@@ -216,22 +224,22 @@ int load_color_table(const char *filename, IterColor **buffer) {
             *buffer = nullptr;
 
             printf("Color table source file not found!\n");
-            return 1;
+            return INVALID_FORMAT;
         }
     }
 
     fclose(file);
 
-    return 0;
+    return OK;
 }
 
 
 int free_color_table(IterColor **buffer) {
-    ASSERT(buffer, 1, "Pointer to buffer is null!\n");
-    ASSERT(*buffer, 1, "Can't free null buffer!\n");
+    ASSERT(buffer, INVALID_ARG, "Pointer to buffer is null!\n");
+    ASSERT(*buffer, INVALID_ARG, "Can't free null buffer!\n");
 
     free(*buffer);
     *buffer = nullptr;
 
-    return 0;
+    return OK;
 }
