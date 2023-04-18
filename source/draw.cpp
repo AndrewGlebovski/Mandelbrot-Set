@@ -167,7 +167,7 @@ int draw_mandelbrot(void) {
         }
 
 
-        set_pixels(color_table, pixels, &transform);
+        for (size_t i = 0; i < 100; i++) set_pixels(color_table, pixels, &transform);
 
         image.create(SCREEN_W, SCREEN_H, pixels);
         texture.loadFromImage(image);
@@ -175,7 +175,7 @@ int draw_mandelbrot(void) {
 
 
         curr_time = clock.getElapsedTime();
-        int fps = (int)(1.0f / (curr_time.asSeconds() - prev_time.asSeconds()));
+        int fps = (int)(100.0f / (curr_time.asSeconds() - prev_time.asSeconds()));
         sprintf(fps_text, "FPS: %i", fps);
         status.setString(fps_text);
         prev_time = curr_time;
