@@ -11,6 +11,8 @@
 
 
 const size_t FPS_BUFFER_SIZE = 100;
+const size_t FPS_TEXT_SIZE = 30;
+const size_t TEST_NUMBER = 100;
 
 
 /// Possible functions exit codes
@@ -152,7 +154,7 @@ int draw_mandelbrot(void) {
             else transform_input(event, &transform);
         }
 
-        for (size_t i = 0; i < 1; i++) set_pixels(color_table, pixels, &transform);
+        for (size_t i = 0; i < TEST_NUMBER; i++) set_pixels(color_table, pixels, &transform);
 
         image.create(SCREEN_W, SCREEN_H, pixels);
         texture.loadFromImage(image);
@@ -182,9 +184,9 @@ void print_fps(sf::Text *status, sf::Clock *clock, sf::Time *prev_time, int *fps
 
     sf::Time curr_time = clock -> getElapsedTime();
 
-    int fps = (int)(1.0f / (curr_time.asSeconds() - prev_time -> asSeconds()));
+    int fps = (int)((float) TEST_NUMBER * 1.0f / (curr_time.asSeconds() - prev_time -> asSeconds()));
 
-    char fps_text[30] = "";
+    char fps_text[FPS_TEXT_SIZE] = "";
     sprintf(fps_text, "FPS: %i", fps);
     status -> setString(fps_text);
 
