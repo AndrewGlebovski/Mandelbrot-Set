@@ -93,45 +93,58 @@ int load_color_table(const char *filename, IterColor **buffer);
 int free_color_table(IterColor **buffer);
 
 
+/**
+ * \brief Change Mandelbrot Transform according to the user input
+ * \brief [in]  event       To handle input
+ * \param [out] transform   Transform to change
+*/
+void transform_input(sf::Event event, Transform *transform);
+
+
+/**
+ * \brief Prints fps and store FPS into FPS buffer
+ * \param [out] status      Text class to fill with FPS
+ * \param [in]  clock       Clock class to get time passed
+ * \param [out] prev_time   Required to calculate FPS
+ * \param [out] fps_buffer  FPS buffer to store FPS value
+*/
+void print_fps(sf::Text *status, sf::Clock *clock, sf::Time *prev_time, int *fps_buffer);
+
+
+/**
+ * \brief Prints what FPS buffer contains
+ * \param [in] fps_buffer   FPS buffer
+*/
+void show_fps_buffer(int *fps_buffer);
+
+
 
 
 int draw_mandelbrot(void) {
     sf::RenderWindow window(sf::VideoMode(SCREEN_W, SCREEN_H), "Mandelbrot3000");
-
 
     sf::Font font;
     ASSERT(font.loadFromFile(FONT_FILE), FILE_NOT_FOUND, "Can't open %s!\n", FONT_FILE);
 
     sf::Text status(sf::String("FPS: 0"), font, FONT_SIZE);
 
-
     sf::Clock clock;
     sf::Time prev_time = clock.getElapsedTime();
-    sf::Time curr_time = sf::seconds(0);
-    char fps_text[30] = "";
-
 
     uint8_t *pixels = (uint8_t *) calloc(SCREEN_W * SCREEN_H * 4, sizeof(uint8_t));
     ASSERT(pixels, ALLOC_FAIL, "Can't allocate buffer for pixels colors!\n");
-
 
     IterColor *color_table = nullptr;
     int exitcode = load_color_table("assets/ColorTable.txt", &color_table);
     if (exitcode) return exitcode;
 
-
     sf::Image image;
     sf::Texture texture;
 
-
     Transform transform = {};
-
 
     int *fps_buffer = (int *) calloc(FPS_BUFFER_SIZE, sizeof(int));
     ASSERT(fps_buffer, ALLOC_FAIL, "Failed to allocate FPS Buffer!\n");
-
-    size_t fps_index = 0;
-
 
     while (window.isOpen()) {
         sf::Event event;
@@ -139,59 +152,18 @@ int draw_mandelbrot(void) {
             if (event.type == sf::Event::Closed) {
                 window.close();
             }
-            else if (event.type == sf::Event::KeyPressed) {
-                switch (event.key.code) {
-                    case sf::Keyboard::Up:
-                        transform.center_y -= MOVE_FACTOR * transform.set_h;
-                        break;
-
-                    case sf::Keyboard::Down:
-                        transform.center_y += MOVE_FACTOR * transform.set_h;
-                        break;
-
-                    case sf::Keyboard::Left:
-                        transform.center_x -= MOVE_FACTOR * transform.set_w;
-                        break;
-
-                    case sf::Keyboard::Right:
-                        transform.center_x += MOVE_FACTOR * transform.set_w;
-                        break;
-                    
-                    default:
-                        break;
-                }
-            }
-            else if (event.type == sf::Event::MouseWheelScrolled) {
-                if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
-                    if (event.mouseWheelScroll.delta > 0) {
-                        transform.set_w *= ZOOM_FACTOR;
-                        transform.set_h *= ZOOM_FACTOR;
-                    }
-                    else {
-                        transform.set_w /= ZOOM_FACTOR;
-                        transform.set_h /= ZOOM_FACTOR;
-                    }
-                }
+            else {
+                transform_input(event, &transform);
             }
         }
 
-
-        for (size_t i = 0; i < 100; i++) set_pixels(color_table, pixels, &transform);
+        for (size_t i = 0; i < 1; i++) set_pixels(color_table, pixels, &transform);
 
         image.create(SCREEN_W, SCREEN_H, pixels);
         texture.loadFromImage(image);
         sf::Sprite sprite(texture);
 
-
-        curr_time = clock.getElapsedTime();
-        int fps = (int)(100.0f / (curr_time.asSeconds() - prev_time.asSeconds()));
-        sprintf(fps_text, "FPS: %i", fps);
-        status.setString(fps_text);
-        prev_time = curr_time;
-
-        fps_buffer[fps_index] = fps;
-        fps_index = (fps_index + 1) % FPS_BUFFER_SIZE;
-        if (!fps_index) printf("It's about time!\n");
+        print_fps(&status, &clock, &prev_time, fps_buffer);
 
         window.clear();
         window.draw(sprite);
@@ -199,12 +171,80 @@ int draw_mandelbrot(void) {
         window.display();
     }
 
-    for (size_t i = 0; i < FPS_BUFFER_SIZE; i++) printf("%d, ", fps_buffer[i]);
-    putchar('\n');
+    show_fps_buffer(fps_buffer);
     free(fps_buffer);
 
     free(pixels);
     return free_color_table(&color_table);
+}
+
+
+void print_fps(sf::Text *status, sf::Clock *clock, sf::Time *prev_time, int *fps_buffer) {
+    assert(prev_time && "Can't print fps without prev time pointer!\n");
+    assert(fps_buffer && "Can't print fps without fps buffer!\n");
+
+    static size_t fps_index = 0;
+
+    sf::Time curr_time = clock -> getElapsedTime();
+
+    int fps = (int)(1.0f / (curr_time.asSeconds() - prev_time -> asSeconds()));
+
+    char fps_text[30] = "";
+    sprintf(fps_text, "FPS: %i", fps);
+    status -> setString(fps_text);
+
+    *prev_time = curr_time;
+
+    fps_buffer[fps_index] = fps;
+    fps_index = (fps_index + 1) % FPS_BUFFER_SIZE;
+}
+
+
+void show_fps_buffer(int *fps_buffer) {
+    assert(fps_buffer && "Can't show null fps buffer!\n");
+
+    for (size_t i = 0; i < FPS_BUFFER_SIZE; i++) printf("%d, ", fps_buffer[i]);
+    putchar('\n');
+}
+
+
+void transform_input(sf::Event event, Transform *transform) {
+    assert(transform && "Transformation pointer in null!\n");
+
+    if (event.type == sf::Event::KeyPressed) {
+        switch (event.key.code) {
+            case sf::Keyboard::Up:
+                transform -> center_y -= MOVE_FACTOR * transform -> set_h;
+                break;
+
+            case sf::Keyboard::Down:
+                transform -> center_y += MOVE_FACTOR * transform -> set_h;
+                break;
+
+            case sf::Keyboard::Left:
+                transform -> center_x -= MOVE_FACTOR * transform -> set_w;
+                break;
+
+            case sf::Keyboard::Right:
+                transform -> center_x += MOVE_FACTOR * transform -> set_w;
+                break;
+            
+            default:
+                break;
+        }
+    }
+    else if (event.type == sf::Event::MouseWheelScrolled) {
+        if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
+            if (event.mouseWheelScroll.delta > 0) {
+                transform -> set_w *= ZOOM_FACTOR;
+                transform -> set_h *= ZOOM_FACTOR;
+            }
+            else {
+                transform -> set_w /= ZOOM_FACTOR;
+                transform -> set_h /= ZOOM_FACTOR;
+            }
+        }
+    }
 }
 
 
