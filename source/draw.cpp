@@ -10,6 +10,9 @@
 #include "draw.hpp"
 
 
+const size_t FPS_BUFFER_SIZE = 100;
+
+
 /// Possible functions exit codes
 typedef enum {
     OK                  = 0,        ///< OK
@@ -124,6 +127,12 @@ int draw_mandelbrot(void) {
     Transform transform = {};
 
 
+    int *fps_buffer = (int *) calloc(FPS_BUFFER_SIZE, sizeof(int));
+    ASSERT(fps_buffer, ALLOC_FAIL, "Failed to allocate FPS Buffer!\n");
+
+    size_t fps_index = 0;
+
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -180,11 +189,19 @@ int draw_mandelbrot(void) {
         status.setString(fps_text);
         prev_time = curr_time;
 
+        fps_buffer[fps_index] = fps;
+        fps_index = (fps_index + 1) % FPS_BUFFER_SIZE;
+        if (!fps_index) printf("It's about time!\n");
+
         window.clear();
         window.draw(sprite);
         window.draw(status);
         window.display();
     }
+
+    for (size_t i = 0; i < FPS_BUFFER_SIZE; i++) printf("%d, ", fps_buffer[i]);
+    putchar('\n');
+    free(fps_buffer);
 
     free(pixels);
     return free_color_table(&color_table);
