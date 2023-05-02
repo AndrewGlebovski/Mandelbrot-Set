@@ -12,7 +12,7 @@
 
 const size_t FPS_BUFFER_SIZE = 100;
 const size_t FPS_TEXT_SIZE = 30;
-const size_t TEST_NUMBER = 100;
+const size_t TEST_NUMBER = 1;
 
 
 /// Possible functions exit codes
@@ -48,6 +48,12 @@ typedef struct {
     uint8_t green = 0;
     uint8_t blue = 0;
 } IterColor;
+
+
+typedef struct {
+    sf::Window  *window = nullptr;      ///< Application window
+    Transform   *transform = nullptr;   ///< Mandelbrot set transformation
+} EventArgs;
 
 
 #define ASSERT(condition, exit_code, ...)       \
@@ -120,6 +126,13 @@ void print_fps(sf::Text *status, sf::Clock *clock, sf::Time *prev_time, int *fps
 void show_fps_buffer(int *fps_buffer);
 
 
+/**
+ * \brief Handles all types of events
+ * \param [in,out] args Contains all necessary arguments
+*/
+void event_parser(EventArgs *args);
+
+
 
 
 int draw_mandelbrot(void) {
@@ -147,12 +160,10 @@ int draw_mandelbrot(void) {
     int *fps_buffer = (int *) calloc(FPS_BUFFER_SIZE, sizeof(int));
     ASSERT(fps_buffer, ALLOC_FAIL, "Failed to allocate FPS Buffer!\n");
 
+    EventArgs event_args = {&window, &transform};
+
     while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) window.close();
-            else transform_input(event, &transform);
-        }
+        event_parser(&event_args);
 
         for (size_t i = 0; i < TEST_NUMBER; i++) set_pixels(color_table, pixels, &transform);
 
@@ -205,42 +216,60 @@ void show_fps_buffer(int *fps_buffer) {
 }
 
 
+void event_parser(EventArgs *args) {
+    assert(args && "Event parser can't work with null args!\n");
+    assert(args -> window && "Event parser can't work with null window!\n");
+    assert(args -> transform && "Event parser can't work with null transform!\n");
+
+    sf::Event event;
+    while (args -> window -> pollEvent(event)) {
+        if (event.type == sf::Event::Closed) {
+            args -> window -> close();
+            return;
+        }
+        
+        transform_input(event, args -> transform);
+    }
+}
+
+
 void transform_input(sf::Event event, Transform *transform) {
     assert(transform && "Transformation pointer in null!\n");
 
-    if (event.type == sf::Event::KeyPressed) {
-        switch (event.key.code) {
-            case sf::Keyboard::Up:
-                transform -> center_y -= MOVE_FACTOR * transform -> set_h;
-                break;
+    switch (event.type) {
+        case sf::Event::KeyPressed: {
+            switch (event.key.code) {
+                case sf::Keyboard::Up:
+                    transform -> center_y -= MOVE_FACTOR * transform -> set_h; return;
 
-            case sf::Keyboard::Down:
-                transform -> center_y += MOVE_FACTOR * transform -> set_h;
-                break;
+                case sf::Keyboard::Down:
+                    transform -> center_y += MOVE_FACTOR * transform -> set_h; return;
 
-            case sf::Keyboard::Left:
-                transform -> center_x -= MOVE_FACTOR * transform -> set_w;
-                break;
+                case sf::Keyboard::Left:
+                    transform -> center_x -= MOVE_FACTOR * transform -> set_w; return;
 
-            case sf::Keyboard::Right:
-                transform -> center_x += MOVE_FACTOR * transform -> set_w;
-                break;
-            
-            default:
-                break;
-        }
-    }
-    else if (event.type == sf::Event::MouseWheelScrolled) {
-        if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
-            if (event.mouseWheelScroll.delta > 0) {
-                transform -> set_w *= ZOOM_FACTOR;
-                transform -> set_h *= ZOOM_FACTOR;
-            }
-            else {
-                transform -> set_w /= ZOOM_FACTOR;
-                transform -> set_h /= ZOOM_FACTOR;
+                case sf::Keyboard::Right:
+                    transform -> center_x += MOVE_FACTOR * transform -> set_w; return;
+                
+                default: return;
             }
         }
+        case sf::Event::MouseWheelScrolled: {
+            if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
+                if (event.mouseWheelScroll.delta > 0) {
+                    transform -> set_w *= ZOOM_FACTOR;
+                    transform -> set_h *= ZOOM_FACTOR;
+                }
+                else {
+                    transform -> set_w /= ZOOM_FACTOR;
+                    transform -> set_h /= ZOOM_FACTOR;
+                }
+            }
+
+            break;
+        }
+
+        default: return;
     }
 }
 
