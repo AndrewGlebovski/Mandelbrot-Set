@@ -12,7 +12,7 @@
 
 const size_t FPS_BUFFER_SIZE = 100;
 const size_t FPS_TEXT_SIZE = 30;
-const size_t TEST_NUMBER = 1;
+const size_t TEST_NUMBER = 100;
 
 
 /// Possible functions exit codes
@@ -130,7 +130,7 @@ void show_fps_buffer(int *fps_buffer);
  * \brief Handles all types of events
  * \param [in,out] args Contains all necessary arguments
 */
-void event_parser(EventArgs *args);
+int event_parser(EventArgs *args);
 
 
 
@@ -163,7 +163,7 @@ int draw_mandelbrot(void) {
     EventArgs event_args = {&window, &transform};
 
     while (window.isOpen()) {
-        event_parser(&event_args);
+        if (event_parser(&event_args)) break;
 
         for (size_t i = 0; i < TEST_NUMBER; i++) set_pixels(color_table, pixels, &transform);
 
@@ -216,7 +216,7 @@ void show_fps_buffer(int *fps_buffer) {
 }
 
 
-void event_parser(EventArgs *args) {
+int event_parser(EventArgs *args) {
     assert(args && "Event parser can't work with null args!\n");
     assert(args -> window && "Event parser can't work with null window!\n");
     assert(args -> transform && "Event parser can't work with null transform!\n");
@@ -225,7 +225,7 @@ void event_parser(EventArgs *args) {
     while (args -> window -> pollEvent(event)) {
         if (event.type == sf::Event::Closed) {
             args -> window -> close();
-            return;
+            return 1;
         }
         
         transform_input(event, args -> transform);
