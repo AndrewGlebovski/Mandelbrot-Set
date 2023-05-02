@@ -230,6 +230,8 @@ int event_parser(EventArgs *args) {
         
         transform_input(event, args -> transform);
     }
+
+    return 0;
 }
 
 
