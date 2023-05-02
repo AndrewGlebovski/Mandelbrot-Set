@@ -135,8 +135,7 @@ int draw_mandelbrot(void) {
     ASSERT(pixels, ALLOC_FAIL, "Can't allocate buffer for pixels colors!\n");
 
     IterColor *color_table = nullptr;
-    int exitcode = load_color_table("assets/ColorTable.txt", &color_table);
-    if (exitcode) return exitcode;
+    if (load_color_table("assets/ColorTable.txt", &color_table)) return 1;
 
     sf::Image image;
     sf::Texture texture;
@@ -149,12 +148,8 @@ int draw_mandelbrot(void) {
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                window.close();
-            }
-            else {
-                transform_input(event, &transform);
-            }
+            if (event.type == sf::Event::Closed) window.close();
+            else transform_input(event, &transform);
         }
 
         for (size_t i = 0; i < 1; i++) set_pixels(color_table, pixels, &transform);
